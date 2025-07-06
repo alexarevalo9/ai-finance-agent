@@ -1,5 +1,6 @@
 'use client';
 
+import Chat from '@/components/chat';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -12,6 +13,7 @@ export default function Home() {
           <SidebarTrigger className='rounded-full bg-gray-200 p-4' />
         </div>
       )}
+      <Chat />
       {/* <div className='grid grid-cols-2 gap-4 flex-1'>
         <div className='bg-muted rounded-xl' />
         <div className='bg-muted rounded-xl' />

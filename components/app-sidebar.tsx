@@ -13,6 +13,7 @@ import {
   SidebarHeader,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { SignedIn } from '@clerk/nextjs';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -58,24 +59,25 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const { open: isOpen } = useSidebar();
+
   const isMobile = useIsMobile();
 
   return (
     <Sidebar collapsible='icon' {...props}>
       <SidebarHeader>
         <div
-          className={`group/header flex ${isOpen ? 'justify-center' : 'justify-between'}`}
+          className={`group/header flex ${!isOpen ? 'justify-center' : 'justify-between'}`}
         >
           <span
-            className={`text-center font-bold w-7 h-7  ${isOpen ? 'group-hover/header:hidden' : ''}`}
+            className={`text-center font-bold w-7 h-7  ${!isOpen ? 'group-hover/header:hidden' : ''}`}
           >
             AI
           </span>
           <div
-            className={`${isOpen ? 'w-7 h-7 hidden group-hover/header:inline-block' : ''}`}
+            className={`${!isOpen ? 'w-7 h-7 hidden group-hover/header:inline-block' : ''}`}
           >
-            {!isMobile && <SidebarTrigger onClick={() => setIsOpen(!isOpen)} />}
+            {!isMobile && <SidebarTrigger />}
           </div>
         </div>
       </SidebarHeader>
@@ -86,7 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
       </SignedIn>
       <SidebarFooter className='mt-auto'>
-        <NavUser isOpen={isOpen} />
+        <NavUser isOpen={!isOpen} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
