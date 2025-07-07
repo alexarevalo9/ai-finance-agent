@@ -67,6 +67,16 @@ const Chat: React.FC<ChatProps> = ({
     scrollToBottom();
   }, [messages, showSummary, isGeneratingAnalysis, analysisGenerationComplete]);
 
+  // Additional scroll effect for when analysis steps are progressing
+  useEffect(() => {
+    if (isGeneratingAnalysis || analysisGenerationComplete) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100); // Small delay to ensure content is rendered
+      return () => clearTimeout(timer);
+    }
+  }, [isGeneratingAnalysis, analysisGenerationComplete]);
+
   const getRandomResponse = () => {
     return mockResponses[Math.floor(Math.random() * mockResponses.length)];
   };
@@ -86,6 +96,9 @@ const Chat: React.FC<ChatProps> = ({
     setInputValue('');
     setIsTyping(true);
 
+    // Auto-scroll after adding user message
+    setTimeout(() => scrollToBottom(), 100);
+
     // Simulate bot response delay
     setTimeout(
       () => {
@@ -98,12 +111,19 @@ const Chat: React.FC<ChatProps> = ({
         setMessages((prev) => [...prev, botMessage]);
         setIsTyping(false);
 
+        // Auto-scroll after bot response
+        setTimeout(() => scrollToBottom(), 100);
+
         // Increment bot response count and check if summary should be shown
         const newCount = botResponseCount + 1;
         setBotResponseCount(newCount);
 
         if (newCount >= summaryResponseThreshold && !showSummary) {
-          setTimeout(() => setShowSummary(true), 1000);
+          setTimeout(() => {
+            setShowSummary(true);
+            // Auto-scroll after summary appears
+            setTimeout(() => scrollToBottom(), 200);
+          }, 1000);
         }
       },
       1500 + Math.random() * 1000
@@ -128,6 +148,9 @@ const Chat: React.FC<ChatProps> = ({
     // Start the analysis generation process and collapse the summary
     setIsGeneratingAnalysis(true);
     setSummaryCollapsed(true);
+
+    // Auto-scroll after starting generation
+    setTimeout(() => scrollToBottom(), 200);
   };
 
   const handleStepComplete = (stepIndex: number) => {
@@ -138,9 +161,14 @@ const Chat: React.FC<ChatProps> = ({
       onStepComplete(completedSteps);
     }
 
+    // Auto-scroll when steps complete
+    setTimeout(() => scrollToBottom(), 150);
+
     // Trigger analysis panel after step 3 (Analyzing Risk Profile)
     if (completedSteps === 3 && !showAnalysisPanel) {
       onShowAnalysis();
+      // Additional scroll after panel opens
+      setTimeout(() => scrollToBottom(), 600);
     }
   };
 
@@ -153,6 +181,9 @@ const Chat: React.FC<ChatProps> = ({
     if (onStepComplete) {
       onStepComplete(7);
     }
+
+    // Auto-scroll when analysis completes
+    setTimeout(() => scrollToBottom(), 200);
   };
 
   const handleContinueConversation = () => {
