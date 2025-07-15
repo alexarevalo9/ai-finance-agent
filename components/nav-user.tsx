@@ -8,7 +8,7 @@ export function NavUser({ isOpen }: { isOpen: boolean }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem
-        className={`${!isOpen ? 'hover:bg-gray-100 rounded-md' : ''} p-2 hover:cursor-pointer`}
+        className={`${!isOpen ? 'hover:bg-gray-100 rounded-md p-2' : ''}  hover:cursor-pointer`}
       >
         <SignedIn>
           <UserButton
