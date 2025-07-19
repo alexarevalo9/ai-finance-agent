@@ -16,6 +16,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import AnalysisGeneration from '@/components/analysis-generation';
 import FinancialAnalysis from '@/components/financial-analysis';
+import { ChatService, ProfileService } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth/context';
+import { useParams } from 'next/navigation';
 
 // Add mock responses
 const mockResponses = {
@@ -255,6 +258,7 @@ interface ProfileStep {
 interface FinancialProfileCollectionProps {
   onComplete: (profileData: Record<string, unknown>) => void;
   onCancel: () => void;
+  sessionId?: string; // Optional sessionId prop
 }
 
 // Types for extracted data
@@ -365,8 +369,12 @@ const parseTaggedData = (content: string): ExtractedMessageData => {
 
 const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
   onComplete,
-  onCancel,
+  // onCancel, // Currently unused - can be implemented later
+  sessionId: propSessionId,
 }) => {
+  const { user } = useAuth();
+  const params = useParams();
+  const routeSessionId = params.sessionId as string;
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -389,7 +397,103 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     process.env.NODE_ENV === 'development'
   );
 
+  // Use the sessionId from props or route params
+  const actualSessionId = propSessionId || routeSessionId;
+
   console.log('messages', messages);
+
+  // Save chat message to conversation history
+  const saveChatMessage = async (
+    content: string,
+    role: 'user' | 'bot',
+    messageData: Record<string, unknown> = {}
+  ) => {
+    if (!actualSessionId || !user) return;
+
+    try {
+      await ChatService.addMessage(actualSessionId, role, content, messageData);
+    } catch (error) {
+      console.error(
+        'Error saving chat message to conversation history:',
+        error
+      );
+    }
+  };
+
+  // Update profile data in database
+  const updateProfileData = async (newData: Record<string, unknown>) => {
+    if (!user) return;
+
+    try {
+      await ProfileService.updateUserProfile(newData);
+    } catch (error) {
+      console.error('Error updating profile data:', error);
+    }
+  };
+
+  // Update session progress in database
+  const updateSessionProgress = async (
+    step: string,
+    progress: number,
+    sessionData: Record<string, unknown> = {}
+  ) => {
+    if (!actualSessionId) return;
+
+    try {
+      await ChatService.updateSessionProgress(actualSessionId, step, progress);
+
+      // Also update session data if provided
+      if (Object.keys(sessionData).length > 0) {
+        await ChatService.updateChatSession(actualSessionId, {
+          session_data: sessionData,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating session progress:', error);
+    }
+  };
+
+  // Load existing conversation history
+  const loadConversationHistory = async (): Promise<boolean> => {
+    if (!actualSessionId || !user) return false;
+
+    try {
+      const conversationHistory =
+        await ChatService.getConversationHistory(actualSessionId);
+
+      if (conversationHistory.length > 0) {
+        // Convert conversation history to display messages
+        const displayMessages: Message[] = conversationHistory.map(
+          (msg, index) => ({
+            id: `${index}`,
+            content: msg.content,
+            sender: msg.role,
+            timestamp: new Date(msg.timestamp),
+          })
+        );
+
+        setMessages(displayMessages);
+
+        // Set conversation history for state management
+        const historyForState = conversationHistory.map((msg) => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content,
+        }));
+        setConversationHistory(historyForState);
+
+        console.log(
+          '📚 Loaded conversation history:',
+          conversationHistory.length,
+          'messages'
+        );
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error loading conversation history:', error);
+      return false;
+    }
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -414,6 +518,17 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
   console.log('profileSessionId', profileSessionId);
   const initializeProfileCollection = async () => {
     setIsTyping(true);
+
+    // First, try to load existing conversation history
+    const hasExistingConversation = await loadConversationHistory();
+
+    // If we have existing conversation, skip new initialization
+    if (hasExistingConversation) {
+      setIsInitialized(true);
+      setIsTyping(false);
+      return;
+    }
+
     try {
       const response = await fetch('/api/financial-profile/chat', {
         method: 'POST',
@@ -518,7 +633,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
       setMessages([
         {
           id: 'error',
-          content: `Sorry, I encountered an error starting the profile collection: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure the Mastra backend is running and try again.`,
+          content: `Sorry, I encountered an error starting the profile collection: ${error instanceof Error ? error.message : 'Unknown error'}. ${isDevMode ? 'Running in dev mode with mock responses.' : 'Please ensure the backend services are running and try again.'}`,
           sender: 'bot',
           timestamp: new Date(),
         },
@@ -549,6 +664,9 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     };
 
     setMessages((prev) => [...prev, userMessage]);
+
+    // Save user message to database
+    await saveChatMessage(inputValue, 'user');
 
     // Update conversation history
     const newConversationHistory = [
@@ -602,6 +720,18 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
       // Extract and process tagged data from the bot response
       const extractedData = parseTaggedData(botResponse);
 
+      // Save bot message to database with extracted data
+      await saveChatMessage(botResponse, 'bot', {
+        userData: extractedData.userData,
+        stepData: extractedData.stepData,
+        userInput: extractedData.userInput,
+        extractedTags: {
+          hasUserData: !!extractedData.userData,
+          hasStepData: !!extractedData.stepData,
+          hasUserInput: !!extractedData.userInput,
+        },
+      });
+
       // Process extracted data
       if (extractedData.userData) {
         console.log(
@@ -610,12 +740,26 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
         );
         // Update profile data with the complete user data
         Object.assign(profileData, extractedData.userData);
+
+        // Save complete profile data to database
+        await updateProfileData(extractedData.userData);
+
         // Mark all steps as completed when we receive complete user data
         setSteps((prevSteps) =>
           prevSteps.map((step) => ({ ...step, completed: true }))
         );
         // Set current step to indicate completion
         setCurrentStep('complete');
+
+        // Update session as completed
+        await updateSessionProgress('complete', 100, {
+          conversationHistory,
+          profileData: extractedData.userData,
+          completedAt: new Date().toISOString(),
+        });
+
+        // Call onComplete callback with the collected profile data
+        onComplete(extractedData.userData);
       }
 
       if (extractedData.stepData) {
@@ -628,10 +772,31 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
           // Mark the previous step as completed when moving to a new step
           updateStepCompletion(currentStep);
           setCurrentStep(extractedData.stepData.step);
+
+          // Calculate progress (assuming 6 steps total)
+          const stepData = extractedData.stepData as {
+            progress?: number;
+            step?: string;
+            [key: string]: unknown;
+          };
+          const stepProgress = Math.round((stepData.progress || 1) * (100 / 6));
+
+          // Update session progress in database
+          await updateSessionProgress(
+            extractedData.stepData.step,
+            stepProgress,
+            {
+              conversationHistory,
+              currentUserInputTemplate,
+              extractedTags: { stepData: extractedData.stepData },
+            }
+          );
         }
         // Update profile data with step-specific data
         if (extractedData.stepData.data) {
           Object.assign(profileData, extractedData.stepData.data);
+          // Save incremental profile data to database
+          await updateProfileData(extractedData.stepData.data);
         }
       } else {
         // Fallback: If no step data is provided, try to infer step progression
@@ -989,10 +1154,10 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   <div className='flex justify-between items-start'>
                     <div className='flex-1'>
                       <div className='font-medium text-gray-900'>
-                        {`${goal.title || ''}`}
+                        {String(goal.title || '')}
                       </div>
                       <div className='text-xs text-gray-500 capitalize'>
-                        {`${goal.type || ''}`}
+                        {String(goal.type || '')}
                       </div>
                     </div>
                     {goal.targetAmount && !isNaN(Number(goal.targetAmount)) && (
@@ -1034,6 +1199,8 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     setAnalysisCompletedSteps(0);
     // Note: We don't reset hasStartedFinancialReport to keep the sidebar permanently hidden
   };
+
+  // onCancel functionality can be added later when needed
 
   return (
     <div className='flex h-full bg-background'>

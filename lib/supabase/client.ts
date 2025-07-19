@@ -41,11 +41,18 @@ export interface ChatSession {
 export interface ChatMessage {
   id: string;
   chat_session_id: string;
-  sender: 'user' | 'bot';
-  content: string;
-  message_data: MessageData;
-  message_order: number;
+  conversation_history: ConversationMessage[];
+  last_message_at: string;
+  message_count: number;
   created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessage {
+  role: 'user' | 'bot';
+  content: string;
+  timestamp: string;
+  message_data?: MessageData;
 }
 
 // Types for financial profile data

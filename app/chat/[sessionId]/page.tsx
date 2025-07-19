@@ -88,9 +88,9 @@ export default function ChatSessionPage() {
       // Mark session as completed
       await ChatService.markSessionCompleted(chatSession.id);
 
-      console.log('Profile completed:', profileData);
-      // Navigate to a success page or dashboard
-      router.push('/dashboard');
+      console.log('✅ Profile completed successfully:', profileData);
+      // Keep user in chat to see results - no redirect needed
+      // The FinancialProfileCollection component will handle the completion UI
     } catch (error) {
       console.error('Error completing profile:', error);
     }

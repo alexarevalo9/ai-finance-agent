@@ -4,6 +4,7 @@ export type {
   UserProfile,
   ChatSession,
   ChatMessage,
+  ConversationMessage,
   FinancialProfileData,
   SessionData,
   MessageData,

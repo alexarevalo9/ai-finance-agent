@@ -2,6 +2,7 @@ import { supabase } from './client';
 import type {
   ChatSession,
   ChatMessage,
+  ConversationMessage,
   SessionData,
   MessageData,
 } from './client';
@@ -117,80 +118,129 @@ export class ChatService {
   }
 
   /**
-   * Add message to chat session
+   * Add message to conversation history
    */
   static async addMessage(
     sessionId: string,
-    sender: 'user' | 'bot',
+    role: 'user' | 'bot',
     content: string,
     messageData: MessageData = {}
   ): Promise<ChatMessage | null> {
     try {
-      // Get the current message count to set the order
-      const { count } = await supabase
-        .from('chat_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('chat_session_id', sessionId);
+      const newMessage: ConversationMessage = {
+        role,
+        content,
+        timestamp: new Date().toISOString(),
+        message_data: messageData,
+      };
 
-      const messageOrder = (count || 0) + 1;
-
-      const { data, error } = await supabase
+      // Try to get existing conversation history
+      const { data: existingRecord } = await supabase
         .from('chat_messages')
-        .insert({
-          chat_session_id: sessionId,
-          sender,
-          content,
-          message_data: messageData,
-          message_order: messageOrder,
-        })
-        .select()
+        .select('*')
+        .eq('chat_session_id', sessionId)
         .single();
 
-      if (error) throw error;
-      return data;
+      if (existingRecord) {
+        // Update existing conversation history
+        const updatedHistory = [
+          ...existingRecord.conversation_history,
+          newMessage,
+        ];
+
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .update({
+            conversation_history: updatedHistory,
+            last_message_at: new Date().toISOString(),
+            message_count: updatedHistory.length,
+          })
+          .eq('chat_session_id', sessionId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new conversation history record
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert({
+            chat_session_id: sessionId,
+            conversation_history: [newMessage],
+            last_message_at: new Date().toISOString(),
+            message_count: 1,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
     } catch (error) {
-      console.error('Error adding message:', error);
+      console.error('Error adding message to conversation:', error);
       return null;
     }
   }
 
   /**
-   * Get all messages for a chat session (automatically filtered by RLS)
+   * Get conversation history for a chat session
    */
-  static async getChatMessages(sessionId: string): Promise<ChatMessage[]> {
+  static async getConversationHistory(
+    sessionId: string
+  ): Promise<ConversationMessage[]> {
     try {
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('*')
+        .select('conversation_history')
         .eq('chat_session_id', sessionId)
-        .order('message_order', { ascending: true });
+        .single();
 
-      if (error) throw error;
-      return data || [];
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      return data?.conversation_history || [];
     } catch (error) {
-      console.error('Error fetching chat messages:', error);
+      console.error('Error fetching conversation history:', error);
       return [];
     }
   }
 
   /**
-   * Get latest messages for a chat session (with limit)
+   * Get chat messages record for a session (includes metadata)
    */
-  static async getLatestMessages(
-    sessionId: string,
-    limit = 50
-  ): Promise<ChatMessage[]> {
+  static async getChatMessages(sessionId: string): Promise<ChatMessage | null> {
     try {
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('chat_session_id', sessionId)
-        .order('message_order', { ascending: false })
-        .limit(limit);
+        .single();
 
-      if (error) throw error;
-      // Reverse to get chronological order
-      return (data || []).reverse();
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching chat messages record:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get latest messages from conversation history (with limit)
+   */
+  static async getLatestMessages(
+    sessionId: string,
+    limit = 50
+  ): Promise<ConversationMessage[]> {
+    try {
+      const conversationHistory = await this.getConversationHistory(sessionId);
+
+      // Return the latest messages (last N messages)
+      return conversationHistory.slice(-limit);
     } catch (error) {
       console.error('Error fetching latest messages:', error);
       return [];
