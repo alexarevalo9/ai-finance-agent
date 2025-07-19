@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import { Send, Bot, User } from 'lucide-react';
-import FinancialSummary from '@/components/financial-summary';
 import AnalysisGeneration from '@/components/analysis-generation';
 
 interface Message {
@@ -245,16 +244,6 @@ const Chat: React.FC<ChatProps> = ({
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Conversation Summary - Always show once triggered, stays in chat history */}
-          {showSummary && (
-            <FinancialSummary
-              isCollapsed={summaryCollapsed}
-              onToggleCollapse={() => setSummaryCollapsed(!summaryCollapsed)}
-              onGenerateAnalysis={handleGenerateAnalysis}
-              onContinueConversation={handleContinueConversation}
-            />
           )}
 
           {/* Analysis Generation - Show during generation or if completed */}

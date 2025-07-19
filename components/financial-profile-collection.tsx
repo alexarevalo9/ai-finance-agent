@@ -3,9 +3,240 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { Send, Bot, User, CheckCircle2, Clock, FileText } from 'lucide-react';
+import {
+  Send,
+  Bot,
+  User,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Settings,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import AnalysisGeneration from '@/components/analysis-generation';
+import FinancialAnalysis from '@/components/financial-analysis';
+
+// Add mock responses
+const mockResponses = {
+  personal: `Great! I'm here to help you create a comprehensive financial profile. We'll start by gathering some personal information. This will help us tailor the financial advice to your specific situation.
+
+Please fill out the following fields:
+
+<user-data>
+{
+  "step": "personal",
+  "fields": {
+    "name": "",
+    "age": "",
+    "location": "",
+    "familyStatus": "",
+    "dependents": ""
+  }
+}
+</user-data>
+
+<step-data>
+{
+  "currentStep": "personal",
+  "progress": 1,
+  "totalSteps": 6,
+  "title": "Personal Information",
+  "description": "Basic details about you and your family"
+}
+</step-data>
+
+<user-input>
+Please fill out the following fields:
+- Name: Alex
+- Age: 27
+- Location: Quito
+- Family Status: Single
+- Dependents: 0
+</user-input>`,
+
+  income: `Perfect! Now let's talk about your income sources. Understanding your income streams helps us assess your financial capacity and plan accordingly.
+
+<user-data>
+{
+  "step": "income",
+  "fields": {
+    "primaryIncome": "",
+    "secondaryIncome": "",
+    "freelanceIncome": "",
+    "investmentIncome": "",
+    "otherIncome": ""
+  }
+}
+</user-data>
+
+<step-data>
+{
+  "currentStep": "incomes",
+  "progress": 2,
+  "totalSteps": 6,
+  "title": "Income Sources",
+  "description": "Your salary, business income, and other sources"
+}
+</step-data>
+
+<user-input>
+Please provide details about your income:
+- Primary Income (salary): $
+- Secondary Income: $
+- Freelance/Business Income: $
+- Investment Income: $
+- Other Income Sources: $
+</user-input>`,
+
+  expenses: `Great! Now let's understand your monthly expenses. This helps us calculate your disposable income and identify potential savings opportunities.
+
+<user-data>
+{
+  "step": "expenses",
+  "fields": {
+    "housing": "",
+    "utilities": "",
+    "food": "",
+    "transportation": "",
+    "insurance": "",
+    "entertainment": "",
+    "otherExpenses": ""
+  }
+}
+</user-data>
+
+<step-data>
+{
+  "currentStep": "expenses",
+  "progress": 3,
+  "totalSteps": 6,
+  "title": "Monthly Expenses",
+  "description": "Housing, utilities, food, and other monthly costs"
+}
+</step-data>
+
+<user-input>
+Please list your monthly expenses:
+- Housing (rent/mortgage): $
+- Utilities: $
+- Food & Groceries: $
+- Transportation: $
+- Insurance: $
+- Entertainment: $
+- Other Expenses: $
+</user-input>`,
+
+  debts: `Now let's review your debts and obligations. Understanding your debt situation is crucial for creating an effective financial strategy.
+
+<user-data>
+{
+  "step": "debts",
+  "fields": {
+    "creditCards": "",
+    "studentLoans": "",
+    "mortgage": "",
+    "autoLoans": "",
+    "personalLoans": "",
+    "otherDebts": ""
+  }
+}
+</user-data>
+
+<step-data>
+{
+  "currentStep": "debts",
+  "progress": 4,
+  "totalSteps": 6,
+  "title": "Debts & Obligations",
+  "description": "Credit cards, loans, mortgage, and other debts"
+}
+</step-data>
+
+<user-input>
+Please provide information about your debts:
+- Credit Card Debt: $
+- Student Loans: $
+- Mortgage: $
+- Auto Loans: $
+- Personal Loans: $
+- Other Debts: $
+</user-input>`,
+
+  savings: `Excellent! Now let's look at your savings and investments. This helps us understand your current financial position and risk tolerance.
+
+<user-data>
+{
+  "step": "savings",
+  "fields": {
+    "emergencyFund": "",
+    "savingsAccount": "",
+    "checkingAccount": "",
+    "investments": "",
+    "retirement401k": "",
+    "ira": "",
+    "otherAssets": ""
+  }
+}
+</user-data>
+
+<step-data>
+{
+  "currentStep": "savings",
+  "progress": 5,
+  "totalSteps": 6,
+  "title": "Savings & Investments",
+  "description": "Emergency fund, retirement accounts, and investments"
+}
+</step-data>
+
+<user-input>
+Please provide details about your savings and investments:
+- Emergency Fund: $
+- Savings Account: $
+- Checking Account: $
+- Investment Portfolio: $
+- 401(k)/403(b): $
+- IRA: $
+- Other Assets: $
+</user-input>`,
+
+  goals: `Finally, let's discuss your financial goals. These will guide our recommendations and help create a personalized financial plan.
+
+<user-data>
+{
+  "step": "goals",
+  "fields": {
+    "shortTermGoals": "",
+    "longTermGoals": "",
+    "retirementPlans": "",
+    "majorPurchases": "",
+    "riskTolerance": "",
+    "timeHorizon": ""
+  }
+}
+</user-data>
+
+<step-data>
+{
+  "currentStep": "goals",
+  "progress": 6,
+  "totalSteps": 6,
+  "title": "Financial Goals",
+  "description": "Short-term and long-term financial objectives"
+}
+</step-data>
+
+<user-input>
+Please share your financial goals:
+- Short-term goals (1-2 years): 
+- Long-term goals (5+ years):
+- Retirement timeline:
+- Major purchases planned:
+- Risk tolerance (Conservative/Moderate/Aggressive):
+- Investment time horizon:
+</user-input>`,
+};
 
 interface Message {
   id: string;
@@ -149,6 +380,16 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
   >([]);
   const [currentUserInputTemplate, setCurrentUserInputTemplate] =
     useState<string>('');
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
+  const [analysisCompletedSteps, setAnalysisCompletedSteps] = useState(0);
+  const [hasStartedFinancialReport, setHasStartedFinancialReport] =
+    useState(false);
+  const [isDevMode, setIsDevMode] = useState(
+    process.env.NODE_ENV === 'development'
+  );
+
+  console.log('messages', messages);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -325,24 +566,33 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     }
 
     try {
-      const response = await fetch('/api/financial-profile/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId,
-          step: currentStep,
-          currentData: profileData,
-          conversationHistory: newConversationHistory,
-        }),
-      });
+      let botResponse = '';
 
-      const data = await response.json();
+      if (isDevMode) {
+        // Use mock response
+        await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
+        botResponse = getMockResponse(currentStep);
+      } else {
+        const response = await fetch('/api/financial-profile/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId,
+            step: currentStep,
+            currentData: profileData,
+            conversationHistory: newConversationHistory,
+          }),
+        });
+
+        const data = await response.json();
+        botResponse = data.message;
+      }
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.message,
+        content: botResponse,
         sender: 'bot',
         timestamp: new Date(),
       };
@@ -350,7 +600,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
       setMessages((prev) => [...prev, botMessage]);
 
       // Extract and process tagged data from the bot response
-      const extractedData = parseTaggedData(data.message);
+      const extractedData = parseTaggedData(botResponse);
 
       // Process extracted data
       if (extractedData.userData) {
@@ -449,29 +699,19 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     }
   };
 
-  const handleComplete = async () => {
-    if (!sessionId) return;
+  // Mock API function for development
+  const getMockResponse = (currentStep: string) => {
+    const stepMap: Record<string, keyof typeof mockResponses> = {
+      personal: 'personal',
+      incomes: 'income',
+      expenses: 'expenses',
+      debts: 'debts',
+      savings: 'savings',
+      goals: 'goals',
+    };
 
-    try {
-      const response = await fetch('/api/financial-profile/complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId,
-          profileData,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        onComplete(data.profileData || profileData);
-      }
-    } catch (error) {
-      console.error('Error completing profile:', error);
-    }
+    const responseKey = stepMap[currentStep] || 'personal';
+    return mockResponses[responseKey];
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -779,111 +1019,133 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     });
   };
 
-  const allStepsCompleted = steps.every((step) => step.completed);
+  const handleAnalysisStepComplete = (stepIndex: number) => {
+    const completedSteps = stepIndex + 1;
+    setAnalysisCompletedSteps(completedSteps);
+  };
+
+  const handleAnalysisComplete = () => {
+    setIsGeneratingAnalysis(false);
+  };
+
+  const handleCloseAnalysis = () => {
+    setShowAnalysisPanel(false);
+    setIsGeneratingAnalysis(false);
+    setAnalysisCompletedSteps(0);
+    // Note: We don't reset hasStartedFinancialReport to keep the sidebar permanently hidden
+  };
 
   return (
     <div className='flex h-full bg-background'>
-      {/* Progress Sidebar */}
-      <div className='w-80 bg-gray-50 border-r p-6 overflow-y-auto'>
-        <div className='mb-6'>
-          <h2 className='text-xl font-semibold text-gray-900 mb-2'>
-            Financial Profile Setup
-          </h2>
-          <p className='text-sm text-gray-600'>
-            Let&apos;s build your comprehensive financial profile step by step.
-          </p>
-        </div>
+      {/* Progress Sidebar - Hide when financial report has been started */}
+      {!hasStartedFinancialReport && (
+        <div className='w-80 bg-gray-50 border-r p-6 overflow-y-auto'>
+          <div className='mb-6'>
+            <div className='flex items-center justify-between mb-2'>
+              <h2 className='text-xl font-semibold text-gray-900'>
+                Financial Profile Setup
+              </h2>
+              {process.env.NODE_ENV === 'development' && (
+                <div className='flex items-center gap-2'>
+                  <Settings className='w-4 h-4 text-gray-400' />
+                  <Button
+                    variant={isDevMode ? 'default' : 'outline'}
+                    size='sm'
+                    onClick={() => setIsDevMode(!isDevMode)}
+                    className='text-xs'
+                  >
+                    {isDevMode ? 'Mock Mode' : 'Live Mode'}
+                  </Button>
+                </div>
+              )}
+            </div>
+            <p className='text-sm text-gray-600'>
+              Let&apos;s build your comprehensive financial profile step by
+              step.
+            </p>
+          </div>
 
-        <div className='space-y-4'>
-          {steps.map((step) => {
-            const isActive =
-              step.id === currentStep && currentStep !== 'complete';
-            const isCompleted = step.completed;
+          <div className='space-y-4'>
+            {steps.map((step) => {
+              const isActive =
+                step.id === currentStep && currentStep !== 'complete';
+              const isCompleted = step.completed;
 
-            return (
-              <div
-                key={step.id}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  isActive
-                    ? 'border-blue-500 bg-blue-50'
-                    : isCompleted
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 bg-white'
-                }`}
-              >
-                <div className='flex items-start gap-3'>
-                  <div className='flex-shrink-0 mt-1'>
-                    {isCompleted ? (
-                      <CheckCircle2 className='w-5 h-5 text-green-600' />
-                    ) : isActive ? (
-                      <Clock className='w-5 h-5 text-blue-600' />
-                    ) : (
-                      <div className='w-5 h-5 rounded-full border-2 border-gray-300' />
-                    )}
-                  </div>
-                  <div className='flex-1'>
-                    <h3
-                      className={`font-medium ${
-                        isActive
-                          ? 'text-blue-900'
-                          : isCompleted
-                            ? 'text-green-900'
-                            : 'text-gray-700'
-                      }`}
-                    >
-                      {step.name}
-                    </h3>
-                    <p
-                      className={`text-sm mt-1 ${
-                        isActive
-                          ? 'text-blue-700'
-                          : isCompleted
-                            ? 'text-green-700'
-                            : 'text-gray-500'
-                      }`}
-                    >
-                      {step.description}
-                    </p>
+              return (
+                <div
+                  key={step.id}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    isActive
+                      ? 'border-blue-500 bg-blue-50'
+                      : isCompleted
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className='flex items-start gap-3'>
+                    <div className='flex-shrink-0 mt-1'>
+                      {isCompleted ? (
+                        <CheckCircle2 className='w-5 h-5 text-green-600' />
+                      ) : isActive ? (
+                        <Clock className='w-5 h-5 text-blue-600' />
+                      ) : (
+                        <div className='w-5 h-5 rounded-full border-2 border-gray-300' />
+                      )}
+                    </div>
+                    <div className='flex-1'>
+                      <h3
+                        className={`font-medium ${
+                          isActive
+                            ? 'text-blue-900'
+                            : isCompleted
+                              ? 'text-green-900'
+                              : 'text-gray-700'
+                        }`}
+                      >
+                        {step.name}
+                      </h3>
+                      <p
+                        className={`text-sm mt-1 ${
+                          isActive
+                            ? 'text-blue-700'
+                            : isCompleted
+                              ? 'text-green-700'
+                              : 'text-gray-500'
+                        }`}
+                      >
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className='mt-8 p-4 bg-blue-50 rounded-lg'>
-          <div className='flex items-center gap-2 mb-2'>
-            <FileText className='w-4 h-4 text-blue-600' />
-            <span className='text-sm font-medium text-blue-900'>
-              Progress: {steps.filter((s) => s.completed).length}/{steps.length}
-            </span>
+              );
+            })}
           </div>
-          <div className='w-full bg-blue-200 rounded-full h-2'>
-            <div
-              className='bg-blue-600 h-2 rounded-full transition-all'
-              style={{
-                width: `${(steps.filter((s) => s.completed).length / steps.length) * 100}%`,
-              }}
-            />
+
+          <div className='mt-8 p-4 bg-blue-50 rounded-lg'>
+            <div className='flex items-center gap-2 mb-2'>
+              <FileText className='w-4 h-4 text-blue-600' />
+              <span className='text-sm font-medium text-blue-900'>
+                Progress: {steps.filter((s) => s.completed).length}/
+                {steps.length}
+              </span>
+            </div>
+            <div className='w-full bg-blue-200 rounded-full h-2'>
+              <div
+                className='bg-blue-600 h-2 rounded-full transition-all'
+                style={{
+                  width: `${(steps.filter((s) => s.completed).length / steps.length) * 100}%`,
+                }}
+              />
+            </div>
           </div>
         </div>
-
-        {allStepsCompleted && (
-          <Button
-            onClick={handleComplete}
-            className='w-full mt-4 bg-green-600 hover:bg-green-700'
-          >
-            Complete Profile Setup
-          </Button>
-        )}
-
-        <Button onClick={onCancel} variant='outline' className='w-full mt-2'>
-          Cancel Setup
-        </Button>
-      </div>
+      )}
 
       {/* Chat Interface */}
-      <div className='flex-1 flex flex-col'>
+      <div
+        className={`flex flex-col ${showAnalysisPanel ? 'w-1/4' : 'flex-1'}`}
+      >
         {/* Messages */}
         <div className='flex-1 overflow-y-auto p-6'>
           <div className='max-w-4xl mx-auto space-y-6'>
@@ -986,10 +1248,11 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                           <div className='mt-6 flex justify-center'>
                             <Button
                               onClick={() => {
-                                // TODO: Implement financial report generation
-                                console.log(
-                                  'Generate Financial Report clicked'
-                                );
+                                setHasStartedFinancialReport(true);
+                                setIsGeneratingAnalysis(true);
+                                setTimeout(() => {
+                                  setShowAnalysisPanel(true);
+                                }, 1000);
                               }}
                               className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 text-lg font-semibold rounded-md shadow-lg hover:shadow-xl transition-all duration-200'
                               size='lg'
@@ -1027,6 +1290,16 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Analysis Generation - Show during and after generation */}
+            {hasStartedFinancialReport && (
+              <AnalysisGeneration
+                onComplete={handleAnalysisComplete}
+                onStepComplete={handleAnalysisStepComplete}
+                isCompleted={!isGeneratingAnalysis}
+              />
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -1045,7 +1318,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                       ? 'Fill out the template...'
                       : 'Type your response here...'
                   }
-                  disabled={isTyping || !isInitialized}
+                  disabled={isTyping || !isInitialized || isGeneratingAnalysis}
                   className='w-full min-h-[40px] max-h-[300px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
                   rows={Math.max(
                     1,
@@ -1055,7 +1328,12 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
               </div>
               <Button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isTyping || !isInitialized}
+                disabled={
+                  !inputValue.trim() ||
+                  isTyping ||
+                  !isInitialized ||
+                  isGeneratingAnalysis
+                }
                 size='default'
                 className='self-end'
               >
@@ -1069,6 +1347,17 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Financial Analysis Panel - Show when analysis is requested */}
+      {showAnalysisPanel && (
+        <div className='w-3/4'>
+          <FinancialAnalysis
+            onClose={handleCloseAnalysis}
+            completedSteps={analysisCompletedSteps}
+            isStreaming={isGeneratingAnalysis}
+          />
+        </div>
+      )}
     </div>
   );
 };
