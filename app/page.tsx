@@ -1,18 +1,40 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Shield, Target, Users } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import { TrendingUp, Shield, Target, Users, LogOut } from 'lucide-react';
+import { useAuth } from '@/lib/auth/context';
+import AuthModal from '@/components/auth/auth-modal';
 
 export default function Home() {
   const isMobile = useIsMobile();
   const router = useRouter();
+  const { user, loading, signOut } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleGetStarted = () => {
-    router.push('/chat');
+    if (user) {
+      // User is authenticated, proceed to chat
+      const sessionId = uuidv4();
+      router.push(`/chat/${sessionId}`);
+    } else {
+      // User not authenticated, show sign-in modal
+      setShowAuthModal(true);
+    }
   };
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className='flex items-center justify-center h-screen'>
+        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary'></div>
+      </div>
+    );
+  }
 
   return (
     <div className='flex flex-col h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50'>
@@ -91,15 +113,30 @@ export default function Home() {
               Get insights, recommendations, and a clear path to your financial
               goals.
             </p>
-            <Button
-              onClick={handleGetStarted}
-              size='lg'
-              className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105'
-            >
-              Get Started
-            </Button>
+            <div className='flex items-center justify-center gap-4'>
+              <Button
+                onClick={handleGetStarted}
+                size='lg'
+                className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105'
+              >
+                Get Started
+              </Button>
+              {user && (
+                <Button
+                  onClick={signOut}
+                  variant='outline'
+                  size='lg'
+                  className='px-6 py-3 text-lg font-semibold rounded-xl'
+                >
+                  <LogOut className='w-5 h-5 mr-2' />
+                  Sign Out
+                </Button>
+              )}
+            </div>
             <p className='text-sm text-gray-500 mt-4'>
-              No credit card required • 100% free to start
+              {user
+                ? `Welcome back, ${user.email}! • Ready to continue your financial journey?`
+                : 'No credit card required • 100% free to start'}
             </p>
           </div>
 
@@ -116,6 +153,12 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { SignedIn } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth/context';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const data = {
@@ -60,7 +60,7 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { open: isOpen } = useSidebar();
-
+  const { user } = useAuth();
   const isMobile = useIsMobile();
 
   return (
@@ -81,12 +81,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
         </div>
       </SidebarHeader>
-      <SignedIn>
+      {user && (
         <SidebarContent>
           <NavMain items={data.navMain} />
           <NavProjects projects={data.projects} />
         </SidebarContent>
-      </SignedIn>
+      )}
       <SidebarFooter className='mt-auto'>
         <NavUser isOpen={!isOpen} />
       </SidebarFooter>
