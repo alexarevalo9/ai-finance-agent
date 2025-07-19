@@ -55,6 +55,28 @@ export interface ConversationMessage {
   message_data?: MessageData;
 }
 
+export interface FinancialRecord {
+  id: string;
+  user_id: string;
+  chat_session_id?: string;
+  amount: number;
+  type: 'expense' | 'income';
+  record_date: string;
+  category: string;
+  description?: string;
+  account?: string;
+  currency: string;
+  payment_type?: string;
+  note?: string;
+  labels?: string[];
+  is_transfer: boolean;
+  source_file_name?: string;
+  source_file_url?: string;
+  upload_batch_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Types for financial profile data
 export interface FinancialProfileData {
   personal?: {

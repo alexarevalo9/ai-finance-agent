@@ -5,6 +5,7 @@ export type {
   ChatSession,
   ChatMessage,
   ConversationMessage,
+  FinancialRecord,
   FinancialProfileData,
   SessionData,
   MessageData,
@@ -13,3 +14,4 @@ export type {
 // Export service classes
 export { ProfileService } from './profiles';
 export { ChatService } from './chat';
+export { FinancialRecordsService } from './financial-records';

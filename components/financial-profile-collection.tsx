@@ -16,9 +16,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import AnalysisGeneration from '@/components/analysis-generation';
 import FinancialAnalysis from '@/components/financial-analysis';
-import { ChatService, ProfileService } from '@/lib/supabase';
+import {
+  ChatService,
+  ProfileService,
+  FinancialRecordsService,
+} from '@/lib/supabase';
 import { useAuth } from '@/lib/auth/context';
 import { useParams } from 'next/navigation';
+import FinancialRecordsUpload from '@/components/financial-records-upload';
 
 // Add mock responses
 const mockResponses = {
@@ -396,6 +401,11 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
   const [isDevMode, setIsDevMode] = useState(
     process.env.NODE_ENV === 'development'
   );
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [parsedRecords, setParsedRecords] = useState<Record<string, unknown>[]>(
+    []
+  );
+  const [isUploadingRecords, setIsUploadingRecords] = useState(false);
 
   // Use the sessionId from props or route params
   const actualSessionId = propSessionId || routeSessionId;
@@ -450,6 +460,97 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
       }
     } catch (error) {
       console.error('Error updating session progress:', error);
+    }
+  };
+
+  // Handle file upload and record parsing
+  const handleFileRecordsParsed = (records: Record<string, unknown>[]) => {
+    setParsedRecords(records);
+    console.log('📊 Parsed financial records:', records.length, 'records');
+  };
+
+  const handleFileSelected = (file: File | null) => {
+    setUploadedFile(file);
+  };
+
+  // Upload financial records to database and storage
+  const uploadFinancialRecords = async (): Promise<boolean> => {
+    if (
+      !user ||
+      !actualSessionId ||
+      !uploadedFile ||
+      parsedRecords.length === 0
+    ) {
+      return false;
+    }
+
+    setIsUploadingRecords(true);
+
+    try {
+      // Generate proper UUID for batch ID
+      const batchId = crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c == 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+
+      // Upload file to storage
+      const fileUrl = await FinancialRecordsService.uploadFile(
+        uploadedFile,
+        user.id
+      );
+
+      if (!fileUrl) {
+        throw new Error('Failed to upload file to storage');
+      }
+
+      // Prepare records for database
+      const recordsToInsert = parsedRecords.map((record) => ({
+        user_id: user.id,
+        chat_session_id: actualSessionId,
+        amount: Number(record.amount),
+        type: String(record.type) as 'expense' | 'income',
+        record_date: String(record.record_date),
+        category: String(record.category),
+        description: record.description
+          ? String(record.description)
+          : undefined,
+        account: record.account ? String(record.account) : undefined,
+        currency: 'USD',
+        payment_type: record.payment_type
+          ? String(record.payment_type)
+          : undefined,
+        note: record.note ? String(record.note) : undefined,
+        labels: record.labels
+          ? Array.isArray(record.labels)
+            ? record.labels.map(String)
+            : [String(record.labels)]
+          : undefined,
+        is_transfer: Boolean(record.is_transfer || false),
+        source_file_name: uploadedFile.name,
+        source_file_url: fileUrl,
+      }));
+
+      // Insert records to database
+      const insertedRecords = await FinancialRecordsService.insertRecords(
+        recordsToInsert,
+        batchId
+      );
+
+      console.log(
+        '✅ Successfully uploaded financial records:',
+        insertedRecords.length,
+        'records'
+      );
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error uploading financial records:', error);
+      return false;
+    } finally {
+      setIsUploadingRecords(false);
     }
   };
 
@@ -1412,20 +1513,57 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                             Complete Financial Profile Summary
                           </h4>
                           {renderCompactSummary(parsedData.userData)}
-                          <div className='mt-6 flex justify-center'>
-                            <Button
-                              onClick={() => {
-                                setHasStartedFinancialReport(true);
-                                setIsGeneratingAnalysis(true);
-                                setTimeout(() => {
-                                  setShowAnalysisPanel(true);
-                                }, 1000);
-                              }}
-                              className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 text-lg font-semibold rounded-md shadow-lg hover:shadow-xl transition-all duration-200'
-                              size='lg'
-                            >
-                              Generate Financial Report
-                            </Button>
+                          <div className='mt-6 space-y-6'>
+                            {/* File Upload Section */}
+                            <div className='bg-blue-50 border border-blue-200 rounded-lg p-6'>
+                              <FinancialRecordsUpload
+                                onRecordsParsed={handleFileRecordsParsed}
+                                onFileSelected={handleFileSelected}
+                                disabled={isUploadingRecords}
+                              />
+                            </div>
+
+                            {/* Generate Report Button */}
+                            <div className='flex justify-center'>
+                              <Button
+                                onClick={async () => {
+                                  // First upload financial records if any
+                                  if (parsedRecords.length > 0) {
+                                    const uploadSuccess =
+                                      await uploadFinancialRecords();
+                                    if (uploadSuccess) {
+                                      console.log(
+                                        '✅ Financial records uploaded successfully'
+                                      );
+                                    } else {
+                                      console.error(
+                                        '❌ Failed to upload financial records'
+                                      );
+                                      return; // Don't proceed with report generation
+                                    }
+                                  }
+
+                                  // Then generate the financial report
+                                  setHasStartedFinancialReport(true);
+                                  setIsGeneratingAnalysis(true);
+                                  setTimeout(() => {
+                                    setShowAnalysisPanel(true);
+                                  }, 1000);
+                                }}
+                                disabled={isUploadingRecords}
+                                className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 text-lg font-semibold rounded-md shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50'
+                                size='lg'
+                              >
+                                {isUploadingRecords ? (
+                                  <div className='flex items-center gap-2'>
+                                    <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                                    <span>Uploading Records...</span>
+                                  </div>
+                                ) : (
+                                  'Generate Financial Report'
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )}
