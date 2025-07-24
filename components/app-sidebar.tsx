@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/lib/auth/context';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ChatService } from '@/lib/supabase/chat';
+import type { ChatSession } from '@/lib/supabase/client';
 
 const data = {
   navMain: [
@@ -42,26 +44,33 @@ const data = {
       icon: Settings2,
     },
   ],
-  projects: [
-    {
-      name: 'Design Engineering',
-      url: '#',
-    },
-    {
-      name: 'Sales & Marketing',
-      url: '#',
-    },
-    {
-      name: 'Travel',
-      url: '#',
-    },
-  ],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { open: isOpen } = useSidebar();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const [chatProjects, setChatProjects] = React.useState<
+    { name: string; url: string }[]
+  >([]);
+  const [chatsLoading, setChatsLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user) {
+      setChatProjects([]);
+      return;
+    }
+    setChatsLoading(true);
+    ChatService.getUserChatSessions()
+      .then((sessions: ChatSession[]) => {
+        const projects = sessions.map((session) => ({
+          name: session.title || 'Untitled Chat',
+          url: `/chat/${session.id}`,
+        }));
+        setChatProjects(projects);
+      })
+      .finally(() => setChatsLoading(false));
+  }, [user]);
 
   return (
     <Sidebar collapsible='icon' {...props}>
@@ -84,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {user && (
         <SidebarContent>
           <NavMain items={data.navMain} />
-          <NavProjects projects={data.projects} />
+          {chatsLoading ? null : <NavProjects projects={chatProjects} />}
         </SidebarContent>
       )}
       <SidebarFooter className='mt-auto'>

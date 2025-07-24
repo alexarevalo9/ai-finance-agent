@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import AnalysisGeneration from '@/components/analysis-generation';
 import FinancialAnalysis from '@/components/financial-analysis';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   ChatService,
   ProfileService,
@@ -207,7 +208,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
   // Use the sessionId from props or route params
   const actualSessionId = propSessionId || routeSessionId;
 
-  console.log('messages', messages);
+  console.log('messages==>', messages);
 
   // Save chat message to conversation history
   const saveChatMessage = async (
@@ -378,6 +379,40 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
           content: msg.content,
         }));
         setConversationHistory(historyForState);
+
+        // --- NEW: Analyze history for completed steps ---
+        const completedSteps = new Set<string>();
+        let allStepsCompleted = false;
+        conversationHistory.forEach((msg) => {
+          const parsed = parseTaggedData(msg.content);
+          // If userData is present, mark all steps as completed
+          if (parsed.userData) {
+            allStepsCompleted = true;
+          }
+          // If stepData indicates a step is completed, add it
+          if (parsed.stepData && parsed.stepData.step) {
+            // Consider a step completed if stepData.data exists
+            if (parsed.stepData.data) {
+              completedSteps.add(parsed.stepData.step);
+            }
+          }
+        });
+        setSteps((prevSteps) => {
+          const updatedSteps = prevSteps.map((step) =>
+            allStepsCompleted
+              ? { ...step, completed: true }
+              : { ...step, completed: completedSteps.has(step.id) }
+          );
+          // If all steps are completed, set currentStep to 'complete'
+          if (allStepsCompleted) {
+            setCurrentStep('complete');
+          }
+          return updatedSteps;
+        });
+        // --- END NEW ---
+
+        setIsInitialized(true); // <-- Ensure input is enabled after loading history
+        setSessionId(actualSessionId);
 
         console.log(
           '📚 Loaded conversation history:',
@@ -771,291 +806,322 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     return (
       <div className='grid grid-cols-2 gap-4'>
         {/* Personal Info */}
-        {userData.personalInfo && typeof userData.personalInfo === 'object' && (
-          <div className='bg-white rounded-lg p-4 border border-gray-200'>
-            <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
-              <User className='w-4 h-4 text-blue-600' />
-              Personal Info
-            </h5>
-            <div className='space-y-1 text-sm'>
-              {Object.entries(
-                userData.personalInfo as Record<string, unknown>
-              ).map(([key, value]) => (
-                <div key={key} className='flex justify-between'>
-                  <span className='text-gray-600 capitalize'>
-                    {key.replace(/([A-Z])/g, ' $1')}:
-                  </span>
-                  <span className='font-medium text-gray-900'>
-                    {`${value || ''}`}
-                  </span>
-                </div>
-              ))}
+        {userData.personalInfo &&
+          typeof userData.personalInfo === 'object' &&
+          !Array.isArray(userData.personalInfo) && (
+            <div className='bg-white rounded-lg p-4 border border-gray-200'>
+              <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                <User className='w-4 h-4 text-blue-600' />
+                Personal Info
+              </h5>
+              <div className='space-y-1 text-sm'>
+                {
+                  Object.entries(
+                    userData.personalInfo as Record<string, unknown>
+                  ).map(([key, value]) => (
+                    <div key={key} className='flex justify-between'>
+                      <span className='text-gray-600 capitalize'>
+                        {key.replace(/([A-Z])/g, ' $1')}:
+                      </span>
+                      <span className='font-medium text-gray-900'>
+                        {`${value || ''}`}
+                      </span>
+                    </div>
+                  )) as React.ReactNode
+                }
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Income Summary */}
-        {userData.incomes && Array.isArray(userData.incomes) && (
-          <div className='bg-white rounded-lg p-4 border border-gray-200'>
-            <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
-              <svg
-                className='w-4 h-4 text-green-600'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M12 6v12m-3-2.818l.621.621L12 15l2.379 1.803L15.621 15.621L12 15l-2.379-1.803L9.621 16.621 12 15l2.379 1.803.621-.621L12 15l-2.379-1.803z'
-                />
-              </svg>
-              Income ({(userData.incomes as Record<string, unknown>[]).length})
-            </h5>
-            <div className='space-y-2'>
-              {(userData.incomes as Record<string, unknown>[]).map(
-                (income: Record<string, unknown>, index) => (
-                  <div key={index} className='text-sm'>
-                    <div className='flex justify-between items-center'>
-                      <span className='text-gray-600'>
-                        {`${income.source || ''}`}
-                      </span>
-                      <div className='text-right'>
-                        <div className='font-medium text-gray-900'>
-                          {formatCurrency(Number(income.amount))}
-                        </div>
-                        <div className='text-xs text-gray-500'>
-                          {`${income.frequency || ''}`}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+        {userData.incomes &&
+          Array.isArray(userData.incomes) &&
+          userData.incomes.length > 0 && (
+            <div className='bg-white rounded-lg p-4 border border-gray-200'>
+              <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                <svg
+                  className='w-4 h-4 text-green-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M12 6v12m-3-2.818l.621.621L12 15l2.379 1.803L15.621 15.621L12 15l-2.379-1.803L9.621 16.621 12 15l2.379 1.803.621-.621L12 15l-2.379-1.803z'
+                  />
+                </svg>
+                Income ({(userData.incomes as Record<string, unknown>[]).length}
                 )
-              )}
-              <div className='pt-2 mt-2 border-t border-gray-100'>
-                <div className='flex justify-between items-center font-semibold text-sm'>
-                  <span>Total Monthly:</span>
-                  <span className='text-green-600'>
-                    {formatCurrency(
-                      (userData.incomes as Record<string, unknown>[]).reduce(
-                        (sum: number, income: Record<string, unknown>) =>
-                          sum + (Number(income.amount) || 0),
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Expenses Summary */}
-        {userData.expenses && Array.isArray(userData.expenses) && (
-          <div className='bg-white rounded-lg p-4 border border-gray-200'>
-            <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
-              <svg
-                className='w-4 h-4 text-red-600'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M20 12H4'
-                />
-              </svg>
-              Expenses (
-              {(userData.expenses as Record<string, unknown>[]).length})
-            </h5>
-            <div className='space-y-2'>
-              {(userData.expenses as Record<string, unknown>[]).map(
-                (expense: Record<string, unknown>, index) => (
-                  <div
-                    key={index}
-                    className='flex justify-between items-center text-sm'
-                  >
-                    <span className='text-gray-600'>
-                      {`${expense.category || ''}`}
-                    </span>
-                    <span className='font-medium text-gray-900'>
-                      {formatCurrency(Number(expense.amount))}
-                    </span>
-                  </div>
-                )
-              )}
-              <div className='pt-2 mt-2 border-t border-gray-100'>
-                <div className='flex justify-between items-center font-semibold text-sm'>
-                  <span>Total Monthly:</span>
-                  <span className='text-red-600'>
-                    {formatCurrency(
-                      (userData.expenses as Record<string, unknown>[]).reduce(
-                        (sum: number, expense: Record<string, unknown>) =>
-                          sum + (Number(expense.amount) || 0),
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Debts Summary */}
-        {userData.debts && Array.isArray(userData.debts) && (
-          <div className='bg-white rounded-lg p-4 border border-gray-200'>
-            <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
-              <svg
-                className='w-4 h-4 text-orange-600'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z'
-                />
-              </svg>
-              Debts ({(userData.debts as Record<string, unknown>[]).length})
-            </h5>
-            <div className='space-y-2'>
-              {(userData.debts as Record<string, unknown>[]).map(
-                (debt: Record<string, unknown>, index) => (
-                  <div
-                    key={index}
-                    className='flex justify-between items-center text-sm'
-                  >
-                    <span className='text-gray-600'>{`${debt.type || ''}`}</span>
-                    <span className='font-medium text-gray-900'>
-                      {formatCurrency(Number(debt.amount))}
-                    </span>
-                  </div>
-                )
-              )}
-              <div className='pt-2 mt-2 border-t border-gray-100'>
-                <div className='flex justify-between items-center font-semibold text-sm'>
-                  <span>Total Debt:</span>
-                  <span className='text-orange-600'>
-                    {formatCurrency(
-                      (userData.debts as Record<string, unknown>[]).reduce(
-                        (sum: number, debt: Record<string, unknown>) =>
-                          sum + (Number(debt.amount) || 0),
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Savings Summary */}
-        {userData.savings && Array.isArray(userData.savings) && (
-          <div className='bg-white rounded-lg p-4 border border-gray-200'>
-            <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
-              <svg
-                className='w-4 h-4 text-blue-600'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
-                />
-              </svg>
-              Savings ({(userData.savings as Record<string, unknown>[]).length})
-            </h5>
-            <div className='space-y-2'>
-              {(userData.savings as Record<string, unknown>[]).map(
-                (saving: Record<string, unknown>, index) => (
-                  <div
-                    key={index}
-                    className='flex justify-between items-center text-sm'
-                  >
-                    <span className='text-gray-600'>
-                      {`${saving.type || ''}`}
-                    </span>
-                    <span className='font-medium text-gray-900'>
-                      {formatCurrency(Number(saving.amount))}
-                    </span>
-                  </div>
-                )
-              )}
-              <div className='pt-2 mt-2 border-t border-gray-100'>
-                <div className='flex justify-between items-center font-semibold text-sm'>
-                  <span>Total Savings:</span>
-                  <span className='text-blue-600'>
-                    {formatCurrency(
-                      (userData.savings as Record<string, unknown>[]).reduce(
-                        (sum: number, saving: Record<string, unknown>) =>
-                          sum + (Number(saving.amount) || 0),
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Goals Summary */}
-        {userData.goals && Array.isArray(userData.goals) && (
-          <div className='bg-white rounded-lg p-4 border border-gray-200'>
-            <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
-              <svg
-                className='w-4 h-4 text-purple-600'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'
-                />
-              </svg>
-              Goals ({(userData.goals as Record<string, unknown>[]).length})
-            </h5>
-            <div className='space-y-2'>
-              {(userData.goals as Record<string, unknown>[]).map(
-                (goal: Record<string, unknown>, index) => (
-                  <div key={index} className='text-sm'>
-                    <div className='flex justify-between items-start'>
-                      <div className='flex-1'>
-                        <div className='font-medium text-gray-900'>
-                          {String(goal.title || '')}
-                        </div>
-                        <div className='text-xs text-gray-500 capitalize'>
-                          {String(goal.type || '')}
-                        </div>
-                      </div>
-                      {goal.targetAmount &&
-                        !isNaN(Number(goal.targetAmount)) && (
-                          <div className='text-right ml-2'>
-                            <div className='font-medium text-gray-900'>
-                              {formatCurrency(Number(goal.targetAmount))}
+              </h5>
+              <div className='space-y-2'>
+                {
+                  (userData.incomes as Record<string, unknown>[]).map(
+                    (income: Record<string, unknown>, index) =>
+                      typeof income === 'object' && income !== null ? (
+                        <div key={index} className='text-sm'>
+                          <div className='flex justify-between items-center'>
+                            <span className='text-gray-600'>
+                              {`${income.source || ''}`}
+                            </span>
+                            <div className='text-right'>
+                              <div className='font-medium text-gray-900'>
+                                {formatCurrency(Number(income.amount))}
+                              </div>
+                              <div className='text-xs text-gray-500'>
+                                {`${income.frequency || ''}`}
+                              </div>
                             </div>
                           </div>
-                        )}
-                    </div>
+                        </div>
+                      ) : null
+                  ) as React.ReactNode
+                }
+                <div className='pt-2 mt-2 border-t border-gray-100'>
+                  <div className='flex justify-between items-center font-semibold text-sm'>
+                    <span>Total Monthly:</span>
+                    <span className='text-green-600'>
+                      {formatCurrency(
+                        (userData.incomes as Record<string, unknown>[]).reduce(
+                          (sum: number, income: Record<string, unknown>) =>
+                            sum + (Number(income.amount) || 0),
+                          0
+                        )
+                      )}
+                    </span>
                   </div>
-                )
-              )}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+        {/* Expenses Summary */}
+        {userData.expenses &&
+          Array.isArray(userData.expenses) &&
+          userData.expenses.length > 0 && (
+            <div className='bg-white rounded-lg p-4 border border-gray-200'>
+              <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                <svg
+                  className='w-4 h-4 text-red-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M20 12H4'
+                  />
+                </svg>
+                Expenses (
+                {(userData.expenses as Record<string, unknown>[]).length})
+              </h5>
+              <div className='space-y-2'>
+                {
+                  (userData.expenses as Record<string, unknown>[]).map(
+                    (expense: Record<string, unknown>, index) =>
+                      typeof expense === 'object' && expense !== null ? (
+                        <div
+                          key={index}
+                          className='flex justify-between items-center text-sm'
+                        >
+                          <span className='text-gray-600'>
+                            {`${expense.category || ''}`}
+                          </span>
+                          <span className='font-medium text-gray-900'>
+                            {formatCurrency(Number(expense.amount))}
+                          </span>
+                        </div>
+                      ) : null
+                  ) as React.ReactNode
+                }
+                <div className='pt-2 mt-2 border-t border-gray-100'>
+                  <div className='flex justify-between items-center font-semibold text-sm'>
+                    <span>Total Monthly:</span>
+                    <span className='text-red-600'>
+                      {formatCurrency(
+                        (userData.expenses as Record<string, unknown>[]).reduce(
+                          (sum: number, expense: Record<string, unknown>) =>
+                            sum + (Number(expense.amount) || 0),
+                          0
+                        )
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* Debts Summary */}
+        {userData.debts &&
+          Array.isArray(userData.debts) &&
+          userData.debts.length > 0 && (
+            <div className='bg-white rounded-lg p-4 border border-gray-200'>
+              <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                <svg
+                  className='w-4 h-4 text-orange-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z'
+                  />
+                </svg>
+                Debts ({(userData.debts as Record<string, unknown>[]).length})
+              </h5>
+              <div className='space-y-2'>
+                {
+                  (userData.debts as Record<string, unknown>[]).map(
+                    (debt: Record<string, unknown>, index) =>
+                      typeof debt === 'object' && debt !== null ? (
+                        <div
+                          key={index}
+                          className='flex justify-between items-center text-sm'
+                        >
+                          <span className='text-gray-600'>{`${debt.type || ''}`}</span>
+                          <span className='font-medium text-gray-900'>
+                            {formatCurrency(Number(debt.amount))}
+                          </span>
+                        </div>
+                      ) : null
+                  ) as React.ReactNode
+                }
+                <div className='pt-2 mt-2 border-t border-gray-100'>
+                  <div className='flex justify-between items-center font-semibold text-sm'>
+                    <span>Total Debt:</span>
+                    <span className='text-orange-600'>
+                      {formatCurrency(
+                        (userData.debts as Record<string, unknown>[]).reduce(
+                          (sum: number, debt: Record<string, unknown>) =>
+                            sum + (Number(debt.amount) || 0),
+                          0
+                        )
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* Savings Summary */}
+        {userData.savings &&
+          Array.isArray(userData.savings) &&
+          userData.savings.length > 0 && (
+            <div className='bg-white rounded-lg p-4 border border-gray-200'>
+              <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                <svg
+                  className='w-4 h-4 text-blue-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
+                  />
+                </svg>
+                Savings (
+                {(userData.savings as Record<string, unknown>[]).length})
+              </h5>
+              <div className='space-y-2'>
+                {
+                  (userData.savings as Record<string, unknown>[]).map(
+                    (saving: Record<string, unknown>, index) =>
+                      typeof saving === 'object' && saving !== null ? (
+                        <div
+                          key={index}
+                          className='flex justify-between items-center text-sm'
+                        >
+                          <span className='text-gray-600'>
+                            {`${saving.type || ''}`}
+                          </span>
+                          <span className='font-medium text-gray-900'>
+                            {formatCurrency(Number(saving.amount))}
+                          </span>
+                        </div>
+                      ) : null
+                  ) as React.ReactNode
+                }
+                <div className='pt-2 mt-2 border-t border-gray-100'>
+                  <div className='flex justify-between items-center font-semibold text-sm'>
+                    <span>Total Savings:</span>
+                    <span className='text-blue-600'>
+                      {formatCurrency(
+                        (userData.savings as Record<string, unknown>[]).reduce(
+                          (sum: number, saving: Record<string, unknown>) =>
+                            sum + (Number(saving.amount) || 0),
+                          0
+                        )
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* Goals Summary */}
+        {userData.goals &&
+          Array.isArray(userData.goals) &&
+          userData.goals.length > 0 && (
+            <div className='bg-white rounded-lg p-4 border border-gray-200'>
+              <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
+                <svg
+                  className='w-4 h-4 text-purple-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'
+                  />
+                </svg>
+                Goals ({(userData.goals as Record<string, unknown>[]).length})
+              </h5>
+              <div className='space-y-2'>
+                {
+                  (userData.goals as Record<string, unknown>[]).map(
+                    (goal: Record<string, unknown>, index) =>
+                      typeof goal === 'object' && goal !== null ? (
+                        <div key={index} className='text-sm'>
+                          <div className='flex justify-between items-start'>
+                            <div className='flex-1'>
+                              <div className='font-medium text-gray-900'>
+                                {String(goal.title || '')}
+                              </div>
+                              <div className='text-xs text-gray-500 capitalize'>
+                                {String(goal.type || '')}
+                              </div>
+                            </div>
+                            {goal.targetAmount &&
+                            !isNaN(Number(goal.targetAmount)) ? (
+                              <div className='text-right ml-2'>
+                                <div className='font-medium text-gray-900'>
+                                  {formatCurrency(Number(goal.targetAmount))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null
+                  ) as React.ReactNode
+                }
+              </div>
+            </div>
+          )}
       </div>
     );
   };
@@ -1306,11 +1372,10 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                                     }
                                   }
 
+                                  setHasStartedFinancialReport(true);
+                                  setIsGeneratingAnalysis(true);
+                                  setShowAnalysisPanel(true); // Show the panel immediately
                                   try {
-                                    // Generate the financial health report using the new API
-                                    setHasStartedFinancialReport(true);
-                                    setIsGeneratingAnalysis(true);
-
                                     const response = await fetch(
                                       '/api/financial-health',
                                       {
@@ -1325,10 +1390,8 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                                         }),
                                       }
                                     );
-
                                     const result = await response.json();
                                     console.log('📊 API Response:', result);
-
                                     if (result.message) {
                                       const reportData = parseTaggedData(
                                         result.message
@@ -1350,12 +1413,8 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                                         'Narrative length:',
                                         result?.narrative?.length || 0
                                       );
-                                      // Still proceed with the analysis panel even if we only have narrative
                                     }
-
-                                    setTimeout(() => {
-                                      setShowAnalysisPanel(true);
-                                    }, 1000);
+                                    setIsGeneratingAnalysis(false);
                                   } catch (error) {
                                     console.error(
                                       '❌ Error generating financial health report:',
@@ -1426,8 +1485,8 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
         {/* Input Area */}
         <div className='border-t bg-white p-6'>
           <div className='max-w-4xl mx-auto'>
-            <div className='flex gap-4'>
-              <div className='flex-1'>
+            <div className='flex gap-4 justify-center items-center'>
+              <div className='flex-1 max-w-3xl'>
                 <textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
@@ -1454,7 +1513,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   isGeneratingAnalysis
                 }
                 size='default'
-                className='self-end'
+                className='mb-1'
               >
                 <Send className='w-4 h-4' />
               </Button>
@@ -1470,11 +1529,15 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
       {/* Financial Analysis Panel - Show when analysis is requested */}
       {showAnalysisPanel && (
         <div className='w-4/6 min-w-0'>
-          <FinancialAnalysis
-            onClose={handleCloseAnalysis}
-            isStreaming={isGeneratingAnalysis}
-            reportData={financialHealthReport}
-          />
+          {isGeneratingAnalysis && !financialHealthReport ? (
+            <FinancialAnalysisSkeleton />
+          ) : (
+            <FinancialAnalysis
+              onClose={handleCloseAnalysis}
+              isStreaming={isGeneratingAnalysis}
+              reportData={financialHealthReport}
+            />
+          )}
         </div>
       )}
     </div>
@@ -1482,3 +1545,120 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
 };
 
 export default FinancialProfileCollection;
+
+// Replace FinancialAnalysisSkeleton with a detailed skeleton matching the real report layout
+function FinancialAnalysisSkeleton() {
+  return (
+    <div className='h-full bg-background border-l flex flex-col overflow-y-scroll no-scrollbar'>
+      {/* Header Skeleton */}
+      <div className='flex items-center justify-between p-6 border-b bg-background'>
+        <div className='flex items-center gap-3'>
+          <Skeleton className='h-10 w-10 rounded-full' />
+          <div>
+            <Skeleton className='h-6 w-48 mb-2' />
+            <Skeleton className='h-4 w-32' />
+          </div>
+        </div>
+        <Skeleton className='h-8 w-8 rounded-full' />
+      </div>
+      {/* Content Skeleton */}
+      <div className='flex-1 p-6 space-y-6'>
+        {/* Financial Health Overview */}
+        <div className='space-y-4'>
+          <Skeleton className='h-6 w-64 mb-2' />
+          {/* Health Score Card */}
+          <div className='bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6 mb-4 flex gap-4'>
+            <Skeleton className='h-12 w-12 rounded-full' />
+            <div className='flex-1'>
+              <Skeleton className='h-8 w-24 mb-2' />
+              <Skeleton className='h-4 w-40' />
+            </div>
+          </div>
+          <div className='grid grid-cols-3 gap-4'>
+            <Skeleton className='h-16 w-full rounded-lg' />
+            <Skeleton className='h-16 w-full rounded-lg' />
+            <Skeleton className='h-16 w-full rounded-lg' />
+          </div>
+          <div className='grid grid-cols-3 gap-4 mt-4'>
+            <Skeleton className='h-14 w-full rounded-lg' />
+            <Skeleton className='h-14 w-full rounded-lg' />
+            <Skeleton className='h-14 w-full rounded-lg' />
+          </div>
+        </div>
+        {/* Expense Breakdown Skeleton */}
+        <div className='space-y-4'>
+          <Skeleton className='h-6 w-64 mb-2' />
+          <div className='space-y-3'>
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className='flex items-center justify-between p-3 bg-muted rounded-lg'
+              >
+                <div className='flex items-center gap-3'>
+                  <Skeleton className='w-4 h-4 rounded-full' />
+                  <Skeleton className='h-4 w-24' />
+                </div>
+                <div className='text-right'>
+                  <Skeleton className='h-4 w-12 mb-1' />
+                  <Skeleton className='h-3 w-16' />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Recommendations Skeleton */}
+        <div className='space-y-4'>
+          <Skeleton className='h-6 w-64 mb-2' />
+          <div className='space-y-3'>
+            {[...Array(2)].map((_, i) => (
+              <div
+                key={i}
+                className='border rounded-lg p-4 bg-yellow-50 border-yellow-200'
+              >
+                <div className='flex items-start gap-3'>
+                  <Skeleton className='h-6 w-6' />
+                  <div className='flex-1'>
+                    <div className='flex items-center gap-2 mb-2'>
+                      <Skeleton className='h-4 w-32' />
+                      <Skeleton className='h-4 w-20' />
+                    </div>
+                    <Skeleton className='h-4 w-48 mb-2' />
+                    <Skeleton className='h-3 w-24 mb-2' />
+                    <Skeleton className='h-3 w-40 mb-1' />
+                    <Skeleton className='h-3 w-36 mb-1' />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Projections Skeleton */}
+        <div className='space-y-4'>
+          <Skeleton className='h-6 w-64 mb-2' />
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='space-y-3'>
+              <Skeleton className='h-4 w-32 mx-auto mb-2' />
+              <Skeleton className='h-10 w-full rounded-lg mb-2' />
+              <Skeleton className='h-10 w-full rounded-lg' />
+            </div>
+            <div className='space-y-3'>
+              <Skeleton className='h-4 w-32 mx-auto mb-2' />
+              <Skeleton className='h-10 w-full rounded-lg mb-2' />
+              <Skeleton className='h-10 w-full rounded-lg' />
+            </div>
+          </div>
+        </div>
+        {/* Action Plan Skeleton */}
+        <div className='space-y-4'>
+          <Skeleton className='h-6 w-48 mb-2' />
+          <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+            <Skeleton className='h-4 w-40 mb-2' />
+            <Skeleton className='h-3 w-64 mb-1' />
+            <Skeleton className='h-3 w-56 mb-1' />
+            <Skeleton className='h-3 w-60 mb-1' />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
