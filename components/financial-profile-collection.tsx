@@ -3,15 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import {
-  Send,
-  Bot,
-  User,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Settings,
-} from 'lucide-react';
+import { Send, Bot, User, CheckCircle2, Clock, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import AnalysisGeneration from '@/components/analysis-generation';
@@ -24,227 +16,6 @@ import {
 import { useAuth } from '@/lib/auth/context';
 import { useParams } from 'next/navigation';
 import FinancialRecordsUpload from '@/components/financial-records-upload';
-
-// Add mock responses
-const mockResponses = {
-  personal: `Great! I'm here to help you create a comprehensive financial profile. We'll start by gathering some personal information. This will help us tailor the financial advice to your specific situation.
-
-Please fill out the following fields:
-
-<user-data>
-{
-  "step": "personal",
-  "fields": {
-    "name": "",
-    "age": "",
-    "location": "",
-    "familyStatus": "",
-    "dependents": ""
-  }
-}
-</user-data>
-
-<step-data>
-{
-  "currentStep": "personal",
-  "progress": 1,
-  "totalSteps": 6,
-  "title": "Personal Information",
-  "description": "Basic details about you and your family"
-}
-</step-data>
-
-<user-input>
-Please fill out the following fields:
-- Name: Alex
-- Age: 27
-- Location: Quito
-- Family Status: Single
-- Dependents: 0
-</user-input>`,
-
-  income: `Perfect! Now let's talk about your income sources. Understanding your income streams helps us assess your financial capacity and plan accordingly.
-
-<user-data>
-{
-  "step": "income",
-  "fields": {
-    "primaryIncome": "",
-    "secondaryIncome": "",
-    "freelanceIncome": "",
-    "investmentIncome": "",
-    "otherIncome": ""
-  }
-}
-</user-data>
-
-<step-data>
-{
-  "currentStep": "incomes",
-  "progress": 2,
-  "totalSteps": 6,
-  "title": "Income Sources",
-  "description": "Your salary, business income, and other sources"
-}
-</step-data>
-
-<user-input>
-Please provide details about your income:
-- Primary Income (salary): $
-- Secondary Income: $
-- Freelance/Business Income: $
-- Investment Income: $
-- Other Income Sources: $
-</user-input>`,
-
-  expenses: `Great! Now let's understand your monthly expenses. This helps us calculate your disposable income and identify potential savings opportunities.
-
-<user-data>
-{
-  "step": "expenses",
-  "fields": {
-    "housing": "",
-    "utilities": "",
-    "food": "",
-    "transportation": "",
-    "insurance": "",
-    "entertainment": "",
-    "otherExpenses": ""
-  }
-}
-</user-data>
-
-<step-data>
-{
-  "currentStep": "expenses",
-  "progress": 3,
-  "totalSteps": 6,
-  "title": "Monthly Expenses",
-  "description": "Housing, utilities, food, and other monthly costs"
-}
-</step-data>
-
-<user-input>
-Please list your monthly expenses:
-- Housing (rent/mortgage): $
-- Utilities: $
-- Food & Groceries: $
-- Transportation: $
-- Insurance: $
-- Entertainment: $
-- Other Expenses: $
-</user-input>`,
-
-  debts: `Now let's review your debts and obligations. Understanding your debt situation is crucial for creating an effective financial strategy.
-
-<user-data>
-{
-  "step": "debts",
-  "fields": {
-    "creditCards": "",
-    "studentLoans": "",
-    "mortgage": "",
-    "autoLoans": "",
-    "personalLoans": "",
-    "otherDebts": ""
-  }
-}
-</user-data>
-
-<step-data>
-{
-  "currentStep": "debts",
-  "progress": 4,
-  "totalSteps": 6,
-  "title": "Debts & Obligations",
-  "description": "Credit cards, loans, mortgage, and other debts"
-}
-</step-data>
-
-<user-input>
-Please provide information about your debts:
-- Credit Card Debt: $
-- Student Loans: $
-- Mortgage: $
-- Auto Loans: $
-- Personal Loans: $
-- Other Debts: $
-</user-input>`,
-
-  savings: `Excellent! Now let's look at your savings and investments. This helps us understand your current financial position and risk tolerance.
-
-<user-data>
-{
-  "step": "savings",
-  "fields": {
-    "emergencyFund": "",
-    "savingsAccount": "",
-    "checkingAccount": "",
-    "investments": "",
-    "retirement401k": "",
-    "ira": "",
-    "otherAssets": ""
-  }
-}
-</user-data>
-
-<step-data>
-{
-  "currentStep": "savings",
-  "progress": 5,
-  "totalSteps": 6,
-  "title": "Savings & Investments",
-  "description": "Emergency fund, retirement accounts, and investments"
-}
-</step-data>
-
-<user-input>
-Please provide details about your savings and investments:
-- Emergency Fund: $
-- Savings Account: $
-- Checking Account: $
-- Investment Portfolio: $
-- 401(k)/403(b): $
-- IRA: $
-- Other Assets: $
-</user-input>`,
-
-  goals: `Finally, let's discuss your financial goals. These will guide our recommendations and help create a personalized financial plan.
-
-<user-data>
-{
-  "step": "goals",
-  "fields": {
-    "shortTermGoals": "",
-    "longTermGoals": "",
-    "retirementPlans": "",
-    "majorPurchases": "",
-    "riskTolerance": "",
-    "timeHorizon": ""
-  }
-}
-</user-data>
-
-<step-data>
-{
-  "currentStep": "goals",
-  "progress": 6,
-  "totalSteps": 6,
-  "title": "Financial Goals",
-  "description": "Short-term and long-term financial objectives"
-}
-</step-data>
-
-<user-input>
-Please share your financial goals:
-- Short-term goals (1-2 years): 
-- Long-term goals (5+ years):
-- Retirement timeline:
-- Major purchases planned:
-- Risk tolerance (Conservative/Moderate/Aggressive):
-- Investment time horizon:
-</user-input>`,
-};
 
 interface Message {
   id: string;
@@ -274,6 +45,8 @@ interface ExtractedMessageData {
     data: Record<string, unknown>;
   };
   userInput?: string;
+  reportData?: Record<string, unknown>;
+  reportNarrative?: string;
   cleanedContent: string;
 }
 
@@ -358,11 +131,35 @@ const parseTaggedData = (content: string): ExtractedMessageData => {
       console.log('💬 Extracted User Input Template:', extractedData.userInput);
     }
 
+    // Extract report-data
+
+    const reportDataContent = extractTagContent(content, 'report-data');
+    if (reportDataContent) {
+      extractedData.reportData = JSON.parse(reportDataContent);
+      console.log('📈 Extracted Report Data:', extractedData.reportData);
+    }
+
+    // Extract report-narrative
+
+    const reportNarrativeContent = extractTagContent(
+      content,
+      'report-narrative'
+    );
+    if (reportNarrativeContent) {
+      extractedData.reportNarrative = reportNarrativeContent;
+      console.log(
+        '📈 Extracted Report Narrative:',
+        extractedData.reportNarrative
+      );
+    }
+
     // Remove all tags from the content for display
     extractedData.cleanedContent = content
       .replace(/<user-data>[\s\S]*?<\/user-data>/gi, '')
       .replace(/<step-data>[\s\S]*?<\/step-data>/gi, '')
       .replace(/<user-input>[\s\S]*?<\/user-input>/gi, '')
+      .replace(/<report-data>[\s\S]*?<\/report-data>/gi, '')
+      .replace(/<report-narrative>[\s\S]*?<\/report-narrative>/gi, '')
       .trim();
   } catch (error) {
     console.error('Error extracting tagged data:', error);
@@ -395,17 +192,17 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     useState<string>('');
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
-  const [analysisCompletedSteps, setAnalysisCompletedSteps] = useState(0);
   const [hasStartedFinancialReport, setHasStartedFinancialReport] =
     useState(false);
-  const [isDevMode, setIsDevMode] = useState(
-    process.env.NODE_ENV === 'development'
-  );
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [parsedRecords, setParsedRecords] = useState<Record<string, unknown>[]>(
     []
   );
   const [isUploadingRecords, setIsUploadingRecords] = useState(false);
+  const [financialHealthReport, setFinancialHealthReport] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   // Use the sessionId from props or route params
   const actualSessionId = propSessionId || routeSessionId;
@@ -734,7 +531,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
       setMessages([
         {
           id: 'error',
-          content: `Sorry, I encountered an error starting the profile collection: ${error instanceof Error ? error.message : 'Unknown error'}. ${isDevMode ? 'Running in dev mode with mock responses.' : 'Please ensure the backend services are running and try again.'}`,
+          content: `Sorry, I encountered an error starting the profile collection: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure the backend services are running and try again.`,
           sender: 'bot',
           timestamp: new Date(),
         },
@@ -787,27 +584,21 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     try {
       let botResponse = '';
 
-      if (isDevMode) {
-        // Use mock response
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
-        botResponse = getMockResponse(currentStep);
-      } else {
-        const response = await fetch('/api/financial-profile/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId,
-            step: currentStep,
-            currentData: profileData,
-            conversationHistory: newConversationHistory,
-          }),
-        });
+      const response = await fetch('/api/financial-profile/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          step: currentStep,
+          currentData: profileData,
+          conversationHistory: newConversationHistory,
+        }),
+      });
 
-        const data = await response.json();
-        botResponse = data.message;
-      }
+      const data = await response.json();
+      botResponse = data.message;
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -965,21 +756,6 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     }
   };
 
-  // Mock API function for development
-  const getMockResponse = (currentStep: string) => {
-    const stepMap: Record<string, keyof typeof mockResponses> = {
-      personal: 'personal',
-      incomes: 'income',
-      expenses: 'expenses',
-      debts: 'debts',
-      savings: 'savings',
-      goals: 'goals',
-    };
-
-    const responseKey = stepMap[currentStep] || 'personal';
-    return mockResponses[responseKey];
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -993,9 +769,9 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     const formatCurrency = (amount: number) => `$${amount.toLocaleString()}`;
 
     return (
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+      <div className='grid grid-cols-2 gap-4'>
         {/* Personal Info */}
-        {userData.personalInfo && (
+        {userData.personalInfo && typeof userData.personalInfo === 'object' && (
           <div className='bg-white rounded-lg p-4 border border-gray-200'>
             <h5 className='font-semibold text-gray-900 mb-3 flex items-center gap-2'>
               <User className='w-4 h-4 text-blue-600' />
@@ -1035,10 +811,10 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   d='M12 6v12m-3-2.818l.621.621L12 15l2.379 1.803L15.621 15.621L12 15l-2.379-1.803L9.621 16.621 12 15l2.379 1.803.621-.621L12 15l-2.379-1.803z'
                 />
               </svg>
-              Income ({userData.incomes.length})
+              Income ({(userData.incomes as Record<string, unknown>[]).length})
             </h5>
             <div className='space-y-2'>
-              {userData.incomes.map(
+              {(userData.incomes as Record<string, unknown>[]).map(
                 (income: Record<string, unknown>, index) => (
                   <div key={index} className='text-sm'>
                     <div className='flex justify-between items-center'>
@@ -1062,7 +838,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   <span>Total Monthly:</span>
                   <span className='text-green-600'>
                     {formatCurrency(
-                      userData.incomes.reduce(
+                      (userData.incomes as Record<string, unknown>[]).reduce(
                         (sum: number, income: Record<string, unknown>) =>
                           sum + (Number(income.amount) || 0),
                         0
@@ -1092,10 +868,11 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   d='M20 12H4'
                 />
               </svg>
-              Expenses ({userData.expenses.length})
+              Expenses (
+              {(userData.expenses as Record<string, unknown>[]).length})
             </h5>
             <div className='space-y-2'>
-              {userData.expenses.map(
+              {(userData.expenses as Record<string, unknown>[]).map(
                 (expense: Record<string, unknown>, index) => (
                   <div
                     key={index}
@@ -1115,7 +892,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   <span>Total Monthly:</span>
                   <span className='text-red-600'>
                     {formatCurrency(
-                      userData.expenses.reduce(
+                      (userData.expenses as Record<string, unknown>[]).reduce(
                         (sum: number, expense: Record<string, unknown>) =>
                           sum + (Number(expense.amount) || 0),
                         0
@@ -1145,26 +922,28 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   d='M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z'
                 />
               </svg>
-              Debts ({userData.debts.length})
+              Debts ({(userData.debts as Record<string, unknown>[]).length})
             </h5>
             <div className='space-y-2'>
-              {userData.debts.map((debt: Record<string, unknown>, index) => (
-                <div
-                  key={index}
-                  className='flex justify-between items-center text-sm'
-                >
-                  <span className='text-gray-600'>{`${debt.type || ''}`}</span>
-                  <span className='font-medium text-gray-900'>
-                    {formatCurrency(Number(debt.amount))}
-                  </span>
-                </div>
-              ))}
+              {(userData.debts as Record<string, unknown>[]).map(
+                (debt: Record<string, unknown>, index) => (
+                  <div
+                    key={index}
+                    className='flex justify-between items-center text-sm'
+                  >
+                    <span className='text-gray-600'>{`${debt.type || ''}`}</span>
+                    <span className='font-medium text-gray-900'>
+                      {formatCurrency(Number(debt.amount))}
+                    </span>
+                  </div>
+                )
+              )}
               <div className='pt-2 mt-2 border-t border-gray-100'>
                 <div className='flex justify-between items-center font-semibold text-sm'>
                   <span>Total Debt:</span>
                   <span className='text-orange-600'>
                     {formatCurrency(
-                      userData.debts.reduce(
+                      (userData.debts as Record<string, unknown>[]).reduce(
                         (sum: number, debt: Record<string, unknown>) =>
                           sum + (Number(debt.amount) || 0),
                         0
@@ -1194,10 +973,10 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
                 />
               </svg>
-              Savings ({userData.savings.length})
+              Savings ({(userData.savings as Record<string, unknown>[]).length})
             </h5>
             <div className='space-y-2'>
-              {userData.savings.map(
+              {(userData.savings as Record<string, unknown>[]).map(
                 (saving: Record<string, unknown>, index) => (
                   <div
                     key={index}
@@ -1217,7 +996,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   <span>Total Savings:</span>
                   <span className='text-blue-600'>
                     {formatCurrency(
-                      userData.savings.reduce(
+                      (userData.savings as Record<string, unknown>[]).reduce(
                         (sum: number, saving: Record<string, unknown>) =>
                           sum + (Number(saving.amount) || 0),
                         0
@@ -1247,30 +1026,33 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                   d='M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'
                 />
               </svg>
-              Goals ({userData.goals.length})
+              Goals ({(userData.goals as Record<string, unknown>[]).length})
             </h5>
             <div className='space-y-2'>
-              {userData.goals.map((goal: Record<string, unknown>, index) => (
-                <div key={index} className='text-sm'>
-                  <div className='flex justify-between items-start'>
-                    <div className='flex-1'>
-                      <div className='font-medium text-gray-900'>
-                        {String(goal.title || '')}
-                      </div>
-                      <div className='text-xs text-gray-500 capitalize'>
-                        {String(goal.type || '')}
-                      </div>
-                    </div>
-                    {goal.targetAmount && !isNaN(Number(goal.targetAmount)) && (
-                      <div className='text-right ml-2'>
+              {(userData.goals as Record<string, unknown>[]).map(
+                (goal: Record<string, unknown>, index) => (
+                  <div key={index} className='text-sm'>
+                    <div className='flex justify-between items-start'>
+                      <div className='flex-1'>
                         <div className='font-medium text-gray-900'>
-                          {formatCurrency(Number(goal.targetAmount))}
+                          {String(goal.title || '')}
+                        </div>
+                        <div className='text-xs text-gray-500 capitalize'>
+                          {String(goal.type || '')}
                         </div>
                       </div>
-                    )}
+                      {goal.targetAmount &&
+                        !isNaN(Number(goal.targetAmount)) && (
+                          <div className='text-right ml-2'>
+                            <div className='font-medium text-gray-900'>
+                              {formatCurrency(Number(goal.targetAmount))}
+                            </div>
+                          </div>
+                        )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </div>
         )}
@@ -1285,11 +1067,6 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
     });
   };
 
-  const handleAnalysisStepComplete = (stepIndex: number) => {
-    const completedSteps = stepIndex + 1;
-    setAnalysisCompletedSteps(completedSteps);
-  };
-
   const handleAnalysisComplete = () => {
     setIsGeneratingAnalysis(false);
   };
@@ -1297,7 +1074,6 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
   const handleCloseAnalysis = () => {
     setShowAnalysisPanel(false);
     setIsGeneratingAnalysis(false);
-    setAnalysisCompletedSteps(0);
     // Note: We don't reset hasStartedFinancialReport to keep the sidebar permanently hidden
   };
 
@@ -1313,19 +1089,6 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
               <h2 className='text-xl font-semibold text-gray-900'>
                 Financial Profile Setup
               </h2>
-              {process.env.NODE_ENV === 'development' && (
-                <div className='flex items-center gap-2'>
-                  <Settings className='w-4 h-4 text-gray-400' />
-                  <Button
-                    variant={isDevMode ? 'default' : 'outline'}
-                    size='sm'
-                    onClick={() => setIsDevMode(!isDevMode)}
-                    className='text-xs'
-                  >
-                    {isDevMode ? 'Mock Mode' : 'Live Mode'}
-                  </Button>
-                </div>
-              )}
             </div>
             <p className='text-sm text-gray-600'>
               Let&apos;s build your comprehensive financial profile step by
@@ -1412,7 +1175,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
 
       {/* Chat Interface */}
       <div
-        className={`flex flex-col ${showAnalysisPanel ? 'w-1/4' : 'flex-1'}`}
+        className={`flex flex-col ${showAnalysisPanel ? 'w-2/6' : 'flex-1'}`}
       >
         {/* Messages */}
         <div className='flex-1 overflow-y-auto p-6'>
@@ -1543,12 +1306,63 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                                     }
                                   }
 
-                                  // Then generate the financial report
-                                  setHasStartedFinancialReport(true);
-                                  setIsGeneratingAnalysis(true);
-                                  setTimeout(() => {
-                                    setShowAnalysisPanel(true);
-                                  }, 1000);
+                                  try {
+                                    // Generate the financial health report using the new API
+                                    setHasStartedFinancialReport(true);
+                                    setIsGeneratingAnalysis(true);
+
+                                    const response = await fetch(
+                                      '/api/financial-health',
+                                      {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          profileData: parsedData.userData,
+                                          userId: user?.id,
+                                          sessionId: actualSessionId,
+                                        }),
+                                      }
+                                    );
+
+                                    const result = await response.json();
+                                    console.log('📊 API Response:', result);
+
+                                    if (result.message) {
+                                      const reportData = parseTaggedData(
+                                        result.message
+                                      );
+                                      console.log('reportData==>', reportData);
+                                      setFinancialHealthReport(
+                                        reportData.reportData as Record<
+                                          string,
+                                          unknown
+                                        >
+                                      );
+                                      console.log(
+                                        '✅ Financial health report generated:',
+                                        result
+                                      );
+                                    } else {
+                                      console.log(
+                                        '⚠️ API succeeded but no structured report data available. Using narrative only.',
+                                        'Narrative length:',
+                                        result?.narrative?.length || 0
+                                      );
+                                      // Still proceed with the analysis panel even if we only have narrative
+                                    }
+
+                                    setTimeout(() => {
+                                      setShowAnalysisPanel(true);
+                                    }, 1000);
+                                  } catch (error) {
+                                    console.error(
+                                      '❌ Error generating financial health report:',
+                                      error
+                                    );
+                                    setIsGeneratingAnalysis(false);
+                                  }
                                 }}
                                 disabled={isUploadingRecords}
                                 className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 text-lg font-semibold rounded-md shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50'
@@ -1600,7 +1414,7 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
             {hasStartedFinancialReport && (
               <AnalysisGeneration
                 onComplete={handleAnalysisComplete}
-                onStepComplete={handleAnalysisStepComplete}
+                onStepComplete={() => {}}
                 isCompleted={!isGeneratingAnalysis}
               />
             )}
@@ -1655,11 +1469,11 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
 
       {/* Financial Analysis Panel - Show when analysis is requested */}
       {showAnalysisPanel && (
-        <div className='w-3/4'>
+        <div className='w-4/6 min-w-0'>
           <FinancialAnalysis
             onClose={handleCloseAnalysis}
-            completedSteps={analysisCompletedSteps}
             isStreaming={isGeneratingAnalysis}
+            reportData={financialHealthReport}
           />
         </div>
       )}
