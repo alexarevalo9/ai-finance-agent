@@ -45,6 +45,8 @@ interface ExtractedMessageData {
     data: Record<string, unknown>;
   };
   userInput?: string;
+  reportData?: Record<string, unknown>;
+  reportNarrative?: string;
   cleanedContent: string;
 }
 
@@ -129,11 +131,35 @@ const parseTaggedData = (content: string): ExtractedMessageData => {
       console.log('💬 Extracted User Input Template:', extractedData.userInput);
     }
 
+    // Extract report-data
+
+    const reportDataContent = extractTagContent(content, 'report-data');
+    if (reportDataContent) {
+      extractedData.reportData = JSON.parse(reportDataContent);
+      console.log('📈 Extracted Report Data:', extractedData.reportData);
+    }
+
+    // Extract report-narrative
+
+    const reportNarrativeContent = extractTagContent(
+      content,
+      'report-narrative'
+    );
+    if (reportNarrativeContent) {
+      extractedData.reportNarrative = reportNarrativeContent;
+      console.log(
+        '📈 Extracted Report Narrative:',
+        extractedData.reportNarrative
+      );
+    }
+
     // Remove all tags from the content for display
     extractedData.cleanedContent = content
       .replace(/<user-data>[\s\S]*?<\/user-data>/gi, '')
       .replace(/<step-data>[\s\S]*?<\/step-data>/gi, '')
       .replace(/<user-input>[\s\S]*?<\/user-input>/gi, '')
+      .replace(/<report-data>[\s\S]*?<\/report-data>/gi, '')
+      .replace(/<report-narrative>[\s\S]*?<\/report-narrative>/gi, '')
       .trim();
   } catch (error) {
     console.error('Error extracting tagged data:', error);
@@ -1303,26 +1329,28 @@ const FinancialProfileCollection: React.FC<FinancialProfileCollectionProps> = ({
                                     const result = await response.json();
                                     console.log('📊 API Response:', result);
 
-                                    if (result.success) {
-                                      if (result.report) {
-                                        setFinancialHealthReport(result.report);
-                                        console.log(
-                                          '✅ Financial health report generated:',
-                                          result.report
-                                        );
-                                      } else {
-                                        console.log(
-                                          '⚠️ API succeeded but no structured report data available. Using narrative only.',
-                                          'Narrative length:',
-                                          result.narrative?.length || 0
-                                        );
-                                        // Still proceed with the analysis panel even if we only have narrative
-                                      }
-                                    } else {
-                                      console.error(
-                                        '❌ Failed to generate financial health report:',
-                                        result.error || 'Unknown error'
+                                    if (result.message) {
+                                      const reportData = parseTaggedData(
+                                        result.message
                                       );
+                                      console.log('reportData==>', reportData);
+                                      setFinancialHealthReport(
+                                        reportData.reportData as Record<
+                                          string,
+                                          unknown
+                                        >
+                                      );
+                                      console.log(
+                                        '✅ Financial health report generated:',
+                                        result
+                                      );
+                                    } else {
+                                      console.log(
+                                        '⚠️ API succeeded but no structured report data available. Using narrative only.',
+                                        'Narrative length:',
+                                        result?.narrative?.length || 0
+                                      );
+                                      // Still proceed with the analysis panel even if we only have narrative
                                     }
 
                                     setTimeout(() => {

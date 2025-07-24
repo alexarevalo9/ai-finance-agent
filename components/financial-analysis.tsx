@@ -1,5 +1,6 @@
 'use client';
 
+import { z } from 'zod';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
@@ -16,6 +17,7 @@ import {
   CheckCircle,
   Loader2,
 } from 'lucide-react';
+import { FinancialHealthReportSchema } from '@/app/api/tools';
 
 interface FinancialAnalysisProps {
   onClose: () => void;
@@ -23,66 +25,7 @@ interface FinancialAnalysisProps {
   reportData?: Record<string, unknown> | null;
 }
 
-// Define the expected structure of financial health report data
-interface FinancialHealthReport {
-  healthScore: {
-    overall: string;
-    grade: number;
-    description: string;
-  };
-  metrics: {
-    debtToIncomeRatio: {
-      percentage: number;
-      status: string;
-      benchmark: string;
-    };
-    savingsRate: {
-      percentage: number;
-      status: string;
-      benchmark: string;
-    };
-    emergencyFund: {
-      monthsCovered: number;
-      status: string;
-      recommendation: string;
-    };
-  };
-  breakdown: {
-    totalMonthlyIncome: number;
-    totalMonthlyExpenses: number;
-    totalDebt: number;
-    totalSavings: number;
-    netWorth: number;
-    disposableIncome: number;
-    expenseCategories: Array<{
-      category: string;
-      amount: number;
-      percentage: number;
-    }>;
-  };
-  recommendations: Array<{
-    id: string;
-    priority: string;
-    category: string;
-    title: string;
-    description: string;
-    impact: string;
-    timeframe: string;
-    actionSteps: string[];
-  }>;
-  projections: {
-    oneYear: {
-      netWorth: number;
-      savings: number;
-      debtReduction: number;
-    };
-    fiveYear: {
-      netWorth: number;
-      savings: number;
-      debtReduction: number;
-    };
-  };
-}
+type FinancialHealthReport = z.infer<typeof FinancialHealthReportSchema>;
 
 const FinancialAnalysis: React.FC<FinancialAnalysisProps> = ({
   onClose,
@@ -95,7 +38,9 @@ const FinancialAnalysis: React.FC<FinancialAnalysisProps> = ({
       return null;
     }
 
-    const healthReport = reportData as unknown as FinancialHealthReport;
+    console.log('reportData==>', reportData);
+
+    const healthReport = reportData as FinancialHealthReport;
 
     // Calculate monthly growth from projections
     const currentNetWorth = healthReport.breakdown.netWorth;
@@ -497,7 +442,7 @@ const FinancialAnalysis: React.FC<FinancialAnalysisProps> = ({
             <ul className='space-y-1 text-sm text-blue-800'>
               {analysisData.recommendations.length > 0 ? (
                 analysisData.recommendations
-                  .filter((rec) => rec.status === 'urgent')
+                  // .filter((rec) => rec.status === 'urgent')
                   .slice(0, 3)
                   .map((rec, index) => <li key={index}>• {rec.title}</li>)
               ) : (
