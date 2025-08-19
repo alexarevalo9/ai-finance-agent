@@ -4,7 +4,7 @@ A comprehensive AI-powered financial advisor application that helps users create
 
 ## 📹 Demo Video
 
-📺 **[Watch the AI Finance Agent in Action](https://drive.google.com/file/d/1X1XjEjxVyA_xANKLzTjayynsfJSTBiZL/view?usp=drive_link)**
+📺 **[Watch the AI Finance Agent in Action](https://drive.google.com/file/d/1mS61QZ-BXrTUfLWADBV_CtKwI69JbpPc/view?usp=sharing)**
 
 ## ✨ Features
 
