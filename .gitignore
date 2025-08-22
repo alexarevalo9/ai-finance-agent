@@ -9,6 +9,8 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.vscode/
+.cursor/
 
 # testing
 /coverage
@@ -41,4 +43,3 @@ yarn-error.log*
 next-env.d.ts
 .mastra
 Untitled*
-*.sql
